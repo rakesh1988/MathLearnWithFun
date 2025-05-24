@@ -102,6 +102,7 @@
             justify-content: center;
             gap: 10px;
             margin-bottom: 10px;
+            flex-wrap: wrap;
         }
 
         .toggle-btn {
@@ -120,6 +121,24 @@
         .toggle-btn span {
             margin-left: 5px;
         }
+
+        .operation-toggle {
+            display: flex;
+            gap: 5px;
+        }
+
+        .operation-btn {
+            padding: 5px 15px;
+            border-radius: 15px;
+        }
+
+        .operation-btn.active {
+            background-color: #9b59b6;
+        }
+
+        #multiplyToggle.active {
+            background-color: #e67e22;
+        }
     </style>
 </head>
 
@@ -129,6 +148,11 @@
         <div class="toggle-container">
             <div class="toggle-btn active" id="timerToggle">
                 <span>Timer: ON</span>
+            </div>
+            <div class="operation-toggle">
+                <button class="operation-btn active" id="addToggle">+ Addition</button>
+                <button class="operation-btn" id="subtractToggle">- Subtraction</button>
+                <button class="operation-btn" id="multiplyToggle">× Multiplication</button>
             </div>
         </div>
         <div class="instructions">
@@ -167,6 +191,9 @@
         const resetBtn = document.getElementById('resetBtn');
         const clearHistoryBtn = document.getElementById('clearHistoryBtn');
         const timerToggle = document.getElementById('timerToggle');
+        const addToggle = document.getElementById('addToggle');
+        const subtractToggle = document.getElementById('subtractToggle');
+        const multiplyToggle = document.getElementById('multiplyToggle');
 
         const MAX_HISTORY = 500;
 
@@ -175,13 +202,15 @@
         let timerInterval;
         let showAnswer = false;
         let timerEnabled = true;
+        let currentOperation = '+'; // '+', '-', or '×'
         let sessionData = {
             problems: [],
             totalAttempted: 0,
             totalCorrect: 0,
             totalTime: 0,
             settings: {
-                timerEnabled: true
+                timerEnabled: true,
+                operation: '+'
             }
         };
 
@@ -195,9 +224,11 @@
                     if (sessionData.problems.length > MAX_HISTORY) {
                         sessionData.problems = sessionData.problems.slice(0, MAX_HISTORY);
                     }
-                    // Initialize timer setting
+                    // Initialize settings
                     timerEnabled = sessionData.settings?.timerEnabled !== false;
+                    currentOperation = sessionData.settings?.operation || '+';
                     updateTimerToggle();
+                    updateOperationToggle();
                     updateStats();
                     updateHistory();
                 } catch (e) {
@@ -209,7 +240,8 @@
                         totalCorrect: 0,
                         totalTime: 0,
                         settings: {
-                            timerEnabled: true
+                            timerEnabled: true,
+                            operation: '+'
                         }
                     };
                 }
@@ -220,6 +252,7 @@
         function saveData() {
             // Update settings before saving
             sessionData.settings.timerEnabled = timerEnabled;
+            sessionData.settings.operation = currentOperation;
             try {
                 localStorage.setItem('mathPracticeData', JSON.stringify(sessionData));
             } catch (e) {
@@ -261,12 +294,42 @@
             }
         }
 
+        // Switch between operations
+        function setOperation(operation) {
+            currentOperation = operation;
+            updateOperationToggle();
+            saveData();
+            generateNewProblem();
+        }
+
+        // Update operation toggle buttons
+        function updateOperationToggle() {
+            addToggle.classList.toggle('active', currentOperation === '+');
+            subtractToggle.classList.toggle('active', currentOperation === '-');
+            multiplyToggle.classList.toggle('active', currentOperation === '×');
+        }
+
         // Generate a new math problem
         function generateNewProblem() {
-            num1 = Math.floor(Math.random() * 10);
-            num2 = Math.floor(Math.random() * 10);
-            answer = num1 + num2;
-            problemElement.textContent = `${num1} + ${num2}`;
+            if (currentOperation === '+') {
+                num1 = Math.floor(Math.random() * 10);
+                num2 = Math.floor(Math.random() * 10);
+                answer = num1 + num2;
+            }
+            else if (currentOperation === '-') {
+                // Ensure answer is non-negative (0-9)
+                num1 = Math.floor(Math.random() * 10);
+                num2 = Math.floor(Math.random() * (num1 + 1));
+                answer = num1 - num2;
+            }
+            else if (currentOperation === '×') {
+                // Multiplication tables up to 9×9
+                num1 = Math.floor(Math.random() * 10);
+                num2 = Math.floor(Math.random() * 10);
+                answer = num1 * num2;
+            }
+
+            problemElement.textContent = `${num1} ${currentOperation} ${num2}`;
             answerElement.textContent = '';
             showAnswer = false;
 
@@ -298,9 +361,10 @@
 
             // Record this problem
             const problemRecord = {
-                problem: `${num1} + ${num2}`,
+                problem: `${num1} ${currentOperation} ${num2}`,
                 answer: answer,
                 time: timeTaken,
+                operation: currentOperation,
                 timestamp: new Date().toLocaleTimeString(),
                 timerUsed: timerEnabled
             };
@@ -387,6 +451,9 @@
         resetBtn.addEventListener('click', resetStats);
         clearHistoryBtn.addEventListener('click', clearHistory);
         timerToggle.addEventListener('click', toggleTimer);
+        addToggle.addEventListener('click', () => setOperation('+'));
+        subtractToggle.addEventListener('click', () => setOperation('-'));
+        multiplyToggle.addEventListener('click', () => setOperation('×'));
 
         // Initialize
         loadData();
@@ -394,4 +461,4 @@
     </script>
 </body>
 
-</html>
+</html>>
