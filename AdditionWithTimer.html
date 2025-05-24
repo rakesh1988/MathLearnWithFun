@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Practice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 20px;
+            background-color: #f0f8ff;
+            user-select: none;
+        }
+
+        .problem {
+            font-size: 72px;
+            margin: 20px 0;
+            color: #2c3e50;
+        }
+
+        .answer {
+            font-size: 48px;
+            color: #27ae60;
+            min-height: 60px;
+        }
+
+        .timer {
+            font-size: 24px;
+            color: #e74c3c;
+            margin: 15px 0;
+        }
+
+        .stats {
+            font-size: 18px;
+            color: #2c3e50;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .instructions {
+            margin: 15px 0;
+            color: #7f8c8d;
+        }
+
+        .history {
+            margin-top: 20px;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+
+        .history-item {
+            margin: 5px 0;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 8px 15px;
+            font-size: 14px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .storage-info {
+            font-size: 12px;
+            color: #95a5a6;
+            margin-top: 10px;
+        }
+
+        .toggle-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .toggle-btn {
+            background-color: #bdc3c7;
+            padding: 5px 10px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .toggle-btn.active {
+            background-color: #2ecc71;
+        }
+
+        .toggle-btn span {
+            margin-left: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Math Practice</h1>
+        <div class="toggle-container">
+            <div class="toggle-btn active" id="timerToggle">
+                <span>Timer: ON</span>
+            </div>
+        </div>
+        <div class="instructions">
+            Press spacebar or enter to show answer<br>
+            Press again for next problem
+        </div>
+        <div class="timer" id="timerDisplay">Time: 0.0s</div>
+        <div class="problem">2 + 3</div>
+        <div class="answer"></div>
+
+        <div class="stats">
+            <div>Problems Solved: <span id="totalProblems">0</span>/500</div>
+            <div>Average Time: <span id="avgTime">0.0</span>s</div>
+            <div>Correct: <span id="correctCount">0</span>/<span id="attemptedCount">0</span></div>
+        </div>
+
+        <button id="resetBtn">Reset Stats</button>
+        <button id="clearHistoryBtn">Clear History</button>
+        <div class="storage-info">(Data is saved in your browser)</div>
+
+        <div class="history" id="historyContainer">
+            <h3>Recent Problems:</h3>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <script>
+        const problemElement = document.querySelector('.problem');
+        const answerElement = document.querySelector('.answer');
+        const timerElement = document.getElementById('timerDisplay');
+        const totalProblemsElement = document.getElementById('totalProblems');
+        const avgTimeElement = document.getElementById('avgTime');
+        const correctCountElement = document.getElementById('correctCount');
+        const attemptedCountElement = document.getElementById('attemptedCount');
+        const historyListElement = document.getElementById('historyList');
+        const resetBtn = document.getElementById('resetBtn');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const timerToggle = document.getElementById('timerToggle');
+
+        const MAX_HISTORY = 500;
+
+        let num1, num2, answer;
+        let startTime;
+        let timerInterval;
+        let showAnswer = false;
+        let timerEnabled = true;
+        let sessionData = {
+            problems: [],
+            totalAttempted: 0,
+            totalCorrect: 0,
+            totalTime: 0,
+            settings: {
+                timerEnabled: true
+            }
+        };
+
+        // Load saved data from localStorage
+        function loadData() {
+            const savedData = localStorage.getItem('mathPracticeData');
+            if (savedData) {
+                try {
+                    sessionData = JSON.parse(savedData);
+                    // Ensure problems array doesn't exceed max size
+                    if (sessionData.problems.length > MAX_HISTORY) {
+                        sessionData.problems = sessionData.problems.slice(0, MAX_HISTORY);
+                    }
+                    // Initialize timer setting
+                    timerEnabled = sessionData.settings?.timerEnabled !== false;
+                    updateTimerToggle();
+                    updateStats();
+                    updateHistory();
+                } catch (e) {
+                    console.error("Error loading saved data:", e);
+                    // Reset if corrupted
+                    sessionData = {
+                        problems: [],
+                        totalAttempted: 0,
+                        totalCorrect: 0,
+                        totalTime: 0,
+                        settings: {
+                            timerEnabled: true
+                        }
+                    };
+                }
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            // Update settings before saving
+            sessionData.settings.timerEnabled = timerEnabled;
+            try {
+                localStorage.setItem('mathPracticeData', JSON.stringify(sessionData));
+            } catch (e) {
+                console.error("Error saving data:", e);
+                // If storage is full, remove oldest items
+                if (e.name === 'QuotaExceededError') {
+                    // Remove 100 oldest items
+                    sessionData.problems = sessionData.problems.slice(100);
+                    saveData(); // Try again
+                }
+            }
+        }
+
+        // Toggle timer on/off
+        function toggleTimer() {
+            timerEnabled = !timerEnabled;
+            updateTimerToggle();
+            if (!timerEnabled) {
+                timerElement.style.display = 'none';
+                clearInterval(timerInterval);
+            } else {
+                timerElement.style.display = 'block';
+                startTime = performance.now();
+                timerInterval = setInterval(updateTimer, 100);
+            }
+            saveData();
+        }
+
+        // Update timer toggle button appearance
+        function updateTimerToggle() {
+            if (timerEnabled) {
+                timerToggle.classList.add('active');
+                timerToggle.innerHTML = '<span>Timer: ON</span>';
+                timerElement.style.display = 'block';
+            } else {
+                timerToggle.classList.remove('active');
+                timerToggle.innerHTML = '<span>Timer: OFF</span>';
+                timerElement.style.display = 'none';
+            }
+        }
+
+        // Generate a new math problem
+        function generateNewProblem() {
+            num1 = Math.floor(Math.random() * 10);
+            num2 = Math.floor(Math.random() * 10);
+            answer = num1 + num2;
+            problemElement.textContent = `${num1} + ${num2}`;
+            answerElement.textContent = '';
+            showAnswer = false;
+
+            // Start timer if enabled
+            if (timerEnabled) {
+                startTime = performance.now();
+                if (timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(updateTimer, 100);
+            }
+        }
+
+        // Update the timer display
+        function updateTimer() {
+            const currentTime = performance.now();
+            const elapsed = (currentTime - startTime) / 1000;
+            timerElement.textContent = `Time: ${elapsed.toFixed(1)}s`;
+        }
+
+        // Show the answer and record performance
+        function showAnswerNow() {
+            const endTime = performance.now();
+            const timeTaken = timerEnabled ? (endTime - startTime) / 1000 : 0;
+            if (timerEnabled) {
+                clearInterval(timerInterval);
+            }
+
+            answerElement.textContent = `= ${answer}`;
+            showAnswer = true;
+
+            // Record this problem
+            const problemRecord = {
+                problem: `${num1} + ${num2}`,
+                answer: answer,
+                time: timeTaken,
+                timestamp: new Date().toLocaleTimeString(),
+                timerUsed: timerEnabled
+            };
+
+            sessionData.problems.unshift(problemRecord); // Add to beginning of array
+            sessionData.totalAttempted++;
+            sessionData.totalTime += timeTaken;
+
+            // Keep only the last MAX_HISTORY problems
+            if (sessionData.problems.length > MAX_HISTORY) {
+                sessionData.problems.pop();
+            }
+
+            updateStats();
+            updateHistory();
+            saveData();
+        }
+
+        // Update statistics display
+        function updateStats() {
+            totalProblemsElement.textContent = sessionData.problems.length;
+            attemptedCountElement.textContent = sessionData.totalAttempted;
+            correctCountElement.textContent = sessionData.totalCorrect;
+
+            // Only calculate average for problems where timer was used
+            const timedProblems = sessionData.problems.filter(p => p.timerUsed !== false);
+            const avgTime = timedProblems.length > 0
+                ? (timedProblems.reduce((sum, p) => sum + p.time, 0) / timedProblems.length).toFixed(1)
+                : '0.0';
+            avgTimeElement.textContent = avgTime;
+        }
+
+        // Update history display
+        function updateHistory() {
+            historyListElement.innerHTML = '';
+            // Only show the first 20 in the UI for performance
+            const displayCount = Math.min(20, sessionData.problems.length);
+            for (let i = 0; i < displayCount; i++) {
+                const item = sessionData.problems[i];
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                const timerInfo = item.timerUsed !== false ? ` (${item.time.toFixed(1)}s)` : ' (timer off)';
+                div.textContent = `${item.problem} = ${item.answer}${timerInfo} @ ${item.timestamp}`;
+                historyListElement.appendChild(div);
+            }
+            if (sessionData.problems.length > displayCount) {
+                const moreDiv = document.createElement('div');
+                moreDiv.className = 'history-item';
+                moreDiv.textContent = `... plus ${sessionData.problems.length - displayCount} more`;
+                historyListElement.appendChild(moreDiv);
+            }
+        }
+
+        // Reset statistics
+        function resetStats() {
+            sessionData.totalAttempted = 0;
+            sessionData.totalCorrect = 0;
+            sessionData.totalTime = 0;
+            updateStats();
+            saveData();
+        }
+
+        // Clear history
+        function clearHistory() {
+            sessionData.problems = [];
+            updateHistory();
+            updateStats();
+            saveData();
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'Enter') {
+                e.preventDefault();
+
+                if (showAnswer) {
+                    generateNewProblem();
+                } else {
+                    showAnswerNow();
+                }
+            }
+        });
+
+        resetBtn.addEventListener('click', resetStats);
+        clearHistoryBtn.addEventListener('click', clearHistory);
+        timerToggle.addEventListener('click', toggleTimer);
+
+        // Initialize
+        loadData();
+        generateNewProblem();
+    </script>
+</body>
+
+</html>
